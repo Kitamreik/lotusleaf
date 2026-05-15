@@ -108,6 +108,78 @@ function SettingsPage() {
         </p>
       </div>
 
+      {isOwner && (
+        <Card className="gold-frame">
+          <CardHeader>
+            <CardTitle className="text-gold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Internal access · allowlist
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Only emails on this list can sign in. Anyone else who authenticates
+              with Firebase is signed out and shown a "not authorized" warning.
+              Stored in the Firestore <code>allowlist</code> collection.
+              Emails are masked in shared views.
+            </p>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs">Email</Label>
+                <Input
+                  type="email"
+                  placeholder="person@example.com"
+                  value={allowEmail}
+                  onChange={(e) => setAllowEmail(e.target.value)}
+                  maxLength={200}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Role</Label>
+                <select
+                  value={allowRole}
+                  onChange={(e) => setAllowRole(e.target.value as Role)}
+                  className="h-9 rounded-md border bg-input px-2 text-sm"
+                >
+                  <option value="owner">owner</option>
+                  <option value="viewer">viewer</option>
+                </select>
+              </div>
+              <Button onClick={addAllow} disabled={allowBusy}>
+                <UserPlus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+
+            <div className="rounded border border-border/60 divide-y divide-border/40">
+              {allow.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  Loading allowlist…
+                </div>
+              ) : (
+                allow.map((a) => (
+                  <div key={a.email} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <div>
+                      <div className="font-medium">{maskEmail(a.email)}</div>
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-gold/80">
+                        {a.role}
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Remove ${maskEmail(a.email)}`}
+                      disabled={allowBusy || a.email === session?.email}
+                      onClick={() => removeAllow(a.email)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="gold-frame">
         <CardHeader>
           <CardTitle className="text-gold">Email reminders</CardTitle>
