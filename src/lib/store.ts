@@ -155,12 +155,23 @@ export function syncCaseToLedger(c: Case) {
     if (existing) ledger.remove(id);
     return;
   }
+  // Pull a short, readable note preview so the ledger / statements line item
+  // carries the supplementary CRM context (notes, invoice #, memos).
+  const notePreview = (c.notes ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  const description = [
+    `[${c.theme}] ${c.client}`,
+    `· ${c.status}`,
+    notePreview ? `— ${notePreview}` : "",
+  ].join(" ").trim();
   const entry: LedgerEntry = {
     id,
     date: c.paymentDate ?? new Date(c.updatedAt).toISOString().slice(0, 10),
     type: "income",
     category: "Revenue",
-    description: `[${c.theme}] ${c.client}`,
+    description,
     amount: c.paymentReceived,
     source: "crm",
     caseId: c.id,
