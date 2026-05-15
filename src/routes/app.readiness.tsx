@@ -3,8 +3,10 @@ import { useMemo } from "react";
 import { evaluateReadiness, scoreFor, type CheckResult } from "@/lib/readiness";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, MinusCircle, Download } from "lucide-react";
+import { CheckCircle2, XCircle, MinusCircle, Download, FileDown } from "lucide-react";
 import { exportSheets } from "@/lib/excel";
+import { downloadPdfReport } from "@/lib/pdf";
+import { ledger, cases, assets, liabilities, equityStore } from "@/lib/store";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/security";
 
@@ -43,6 +45,97 @@ function ReadinessPage() {
     toast.success("Readiness exported");
   }
 
+  function exportPdf() {
+    // Live snapshot from CRM + bookkeeping so reviewers can see what fed
+    // the score, not just the score itself.
+    const lg = ledger.list();
+    const cs = cases.list().filter((c) => !c.archived);
+    const income = lg.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
+    const expense = lg.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
+    const months = new Set(lg.map((e) => e.date.slice(0, 7))).size;
+    const totalAssets = assets.list().reduce((s, i) => s + i.value, 0);
+    const totalLiab = liabilities.list().reduce((s, i) => s + i.value, 0);
+    const totalEquity = equityStore.list().reduce((s, i) => s + i.value, 0);
+    const ar = cs.reduce((s, c) => s + Math.max(0, c.amount - c.paymentReceived), 0);
+
+    const vcRows = checks.filter((c) => c.category === "vc").map((c) => [
+      c.group, c.label, `${c.weight}`, `${Math.round(c.score * 100)}%`,
+      (c.weight * c.score).toFixed(1), c.passed ? "Pass" : "Gap", c.detail,
+    ]);
+    const bcRows = checks.filter((c) => c.category === "bcorp").map((c) => [
+      c.group, c.label, `${c.weight}`, `${Math.round(c.score * 100)}%`,
+      (c.weight * c.score).toFixed(1), c.passed ? "Pass" : "Gap", c.detail,
+    ]);
+
+    downloadPdfReport({
+      title: "VC & B Corporation Readiness Report",
+      subtitle: "Kit TJ Services, LLC — internal self-assessment",
+      meta: [
+        ["Generated", new Date().toLocaleString()],
+        ["Venture Capital readiness", `${vcScore}%`],
+        ["B Corporation alignment", `${bcScore}%`],
+      ],
+      sections: [
+        {
+          heading: "Executive summary",
+          paragraph:
+            `This indicative readiness report is generated from live CRM and bookkeeping ` +
+            `data. The Venture Capital score (${vcScore}%) reflects financial maturity, ` +
+            `pipeline diversity and governance hygiene; the B Corporation score (${bcScore}%) ` +
+            `reflects mission alignment, stakeholder practices and impact tracking. ` +
+            `Both are self-assessments — formal certification requires the official B Lab ` +
+            `assessment and audited financials.`,
+        },
+        {
+          heading: "Operating snapshot",
+          table: {
+            head: [["Metric", "Value"]],
+            body: [
+              ["Active cases", `${cs.length}`],
+              ["Months of bookkeeping history", `${months}`],
+              ["Tracked revenue", `$${income.toLocaleString()}`],
+              ["Tracked expenses", `$${expense.toLocaleString()}`],
+              ["Net (income − expenses)", `$${(income - expense).toLocaleString()}`],
+              ["Total assets", `$${totalAssets.toLocaleString()}`],
+              ["Total liabilities", `$${totalLiab.toLocaleString()}`],
+              ["Equity contributions", `$${totalEquity.toLocaleString()}`],
+              ["Accounts receivable (open)", `$${ar.toLocaleString()}`],
+            ],
+          },
+        },
+        {
+          heading: `Venture Capital readiness — ${vcScore}%`,
+          table: {
+            head: [["Group", "Check", "Wt", "Score", "Earned", "Status", "Detail"]],
+            body: vcRows,
+          },
+        },
+        {
+          heading: `B Corporation alignment — ${bcScore}%`,
+          table: {
+            head: [["Group", "Check", "Wt", "Score", "Earned", "Status", "Detail"]],
+            body: bcRows,
+          },
+        },
+        {
+          heading: "Recommended next steps",
+          paragraph:
+            "1) Close any 'Gap' rows above by adding the missing CRM cases, " +
+            "expense categories, audit notes, or balance-sheet line items. " +
+            "2) Maintain at least 12 months of continuous bookkeeping for VC " +
+            "diligence. 3) For B Corp certification, complete the official B " +
+            "Impact Assessment at bcorporation.net once the alignment score " +
+            "exceeds 75%.",
+        },
+      ],
+      footer:
+        "Confidential · Kit TJ Services, LLC · Indicative self-assessment, not an audited statement.",
+    }, `readiness-${new Date().toISOString().slice(0, 10)}.pdf`);
+
+    logAudit("readiness.export.pdf", undefined, { vc: vcScore, bcorp: bcScore });
+    toast.success("Readiness PDF downloaded");
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
@@ -53,7 +146,14 @@ function ReadinessPage() {
             formal certification requires the official B Lab assessment and audited financials.
           </p>
         </div>
-        <Button onClick={exportXlsx}><Download className="h-4 w-4" /> Export Excel</Button>
+        <div className="flex gap-2">
+          <Button onClick={exportPdf} variant="outline">
+            <FileDown className="h-4 w-4" /> Export PDF
+          </Button>
+          <Button onClick={exportXlsx}>
+            <Download className="h-4 w-4" /> Export Excel
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
