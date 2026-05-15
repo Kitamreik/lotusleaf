@@ -22,10 +22,12 @@ import {
 // Mock auth BEFORE importing anything that uses it.
 vi.mock("@/lib/auth", () => ({
   useAuth: () => ({
-    session: { email: "admin@kit.tj" },
+    session: { email: "admin@kit.tj", role: "owner" },
     loading: false,
     login: vi.fn(),
     logout: vi.fn(),
+    unauthorizedEmail: null,
+    clearUnauthorized: vi.fn(),
   }),
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
