@@ -13,13 +13,64 @@ import {
 } from "@/lib/settings";
 import { seedDemoData, clearDemoData } from "@/lib/seed";
 import { downloadReminderIcs } from "@/lib/calendar";
-import { Database, Calendar, Trash2 } from "lucide-react";
+import { Database, Calendar, Trash2, UserPlus, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import {
+  fetchAllowlist, addAllowlistEntry, removeAllowlistEntry,
+  maskEmail, type AllowlistEntry, type Role,
+} from "@/lib/roles";
 
 export const Route = createFileRoute("/app/settings")({ component: SettingsPage });
 
 function SettingsPage() {
   const [s, setS] = useState<Settings>(() => getSettings());
   const [testing, setTesting] = useState(false);
+  const { session } = useAuth();
+  const isOwner = session?.role === "owner";
+
+  const [allow, setAllow] = useState<AllowlistEntry[]>([]);
+  const [allowEmail, setAllowEmail] = useState("");
+  const [allowRole, setAllowRole] = useState<Role>("viewer");
+  const [allowBusy, setAllowBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    fetchAllowlist().then(setAllow);
+  }, [isOwner]);
+
+  async function addAllow() {
+    const email = allowEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) { toast.error("Enter a valid email"); return; }
+    setAllowBusy(true);
+    try {
+      await addAllowlistEntry(email, allowRole);
+      const next = await fetchAllowlist();
+      setAllow(next);
+      setAllowEmail("");
+      toast.success(`Added ${maskEmail(email)} as ${allowRole}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to add");
+    } finally {
+      setAllowBusy(false);
+    }
+  }
+
+  async function removeAllow(email: string) {
+    if (email === session?.email) {
+      toast.error("You cannot remove your own access here.");
+      return;
+    }
+    setAllowBusy(true);
+    try {
+      await removeAllowlistEntry(email);
+      setAllow(await fetchAllowlist());
+      toast.success(`Removed ${maskEmail(email)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove");
+    } finally {
+      setAllowBusy(false);
+    }
+  }
 
   useEffect(() => { pullSettingsFromCloud().then((r) => { if (r) setS(r); }); }, []);
 
