@@ -2,12 +2,15 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { firebaseEnabled, fbAuth } from "./firebase";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { logAudit, rateLimit, safeText } from "./security";
+import { checkAllowlist, type Role } from "./roles";
 
-type Session = { email: string } | null;
+type Session = { email: string; role: Role } | null;
 
 type AuthCtx = {
   session: Session;
   loading: boolean;
+  unauthorizedEmail: string | null;
+  clearUnauthorized: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -19,6 +22,7 @@ const LEGACY_SESSION_KEY = "lotus.session.email";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session>(null);
   const [loading, setLoading] = useState(true);
+  const [unauthorizedEmail, setUnauthorizedEmail] = useState<string | null>(null);
 
   useEffect(() => {
     // SECURITY: never restore a session from localStorage. The previous
@@ -29,13 +33,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try { localStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* noop */ }
     }
     if (firebaseEnabled && fbAuth) {
-      const unsub = onAuthStateChanged(fbAuth, (u) => {
-        setSession(u?.email ? { email: u.email } : null);
-        // For audit attribution only — never used to grant access.
-        try {
-          if (u?.email) localStorage.setItem(LEGACY_SESSION_KEY, u.email);
-          else localStorage.removeItem(LEGACY_SESSION_KEY);
-        } catch { /* noop */ }
+      const unsub = onAuthStateChanged(fbAuth, async (u) => {
+        if (!u?.email) {
+          setSession(null);
+          try { localStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* noop */ }
+          setLoading(false);
+          return;
+        }
+        const allowed = await checkAllowlist(u.email);
+        if (!allowed) {
+          // Sign them out and surface the warning on the login screen.
+          logAudit("auth.unauthorized", u.email);
+          setUnauthorizedEmail(u.email);
+          try { await signOut(fbAuth!); } catch { /* noop */ }
+          setSession(null);
+          try { localStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* noop */ }
+          setLoading(false);
+          return;
+        }
+        setUnauthorizedEmail(null);
+        setSession({ email: u.email, role: allowed.role });
+        try { localStorage.setItem(LEGACY_SESSION_KEY, u.email); } catch { /* noop */ }
         setLoading(false);
       });
       return unsub;
@@ -72,7 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logAudit("auth.logout", who);
   };
 
-  return <Ctx.Provider value={{ session, loading, login, logout }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{
+      session, loading, login, logout,
+      unauthorizedEmail,
+      clearUnauthorized: () => setUnauthorizedEmail(null),
+    }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useAuth() {
