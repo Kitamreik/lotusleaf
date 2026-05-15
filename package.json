@@ -63,6 +63,8 @@
     "firebase": "^12.13.0",
     "hono": "^4.12.18",
     "input-otp": "^1.4.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "jszip": "^3.10.1",
     "lucide-react": "^0.575.0",
     "react": "^19.2.0",
