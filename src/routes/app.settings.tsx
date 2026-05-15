@@ -13,13 +13,64 @@ import {
 } from "@/lib/settings";
 import { seedDemoData, clearDemoData } from "@/lib/seed";
 import { downloadReminderIcs } from "@/lib/calendar";
-import { Database, Calendar, Trash2 } from "lucide-react";
+import { Database, Calendar, Trash2, UserPlus, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import {
+  fetchAllowlist, addAllowlistEntry, removeAllowlistEntry,
+  maskEmail, type AllowlistEntry, type Role,
+} from "@/lib/roles";
 
 export const Route = createFileRoute("/app/settings")({ component: SettingsPage });
 
 function SettingsPage() {
   const [s, setS] = useState<Settings>(() => getSettings());
   const [testing, setTesting] = useState(false);
+  const { session } = useAuth();
+  const isOwner = session?.role === "owner";
+
+  const [allow, setAllow] = useState<AllowlistEntry[]>([]);
+  const [allowEmail, setAllowEmail] = useState("");
+  const [allowRole, setAllowRole] = useState<Role>("viewer");
+  const [allowBusy, setAllowBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    fetchAllowlist().then(setAllow);
+  }, [isOwner]);
+
+  async function addAllow() {
+    const email = allowEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) { toast.error("Enter a valid email"); return; }
+    setAllowBusy(true);
+    try {
+      await addAllowlistEntry(email, allowRole);
+      const next = await fetchAllowlist();
+      setAllow(next);
+      setAllowEmail("");
+      toast.success(`Added ${maskEmail(email)} as ${allowRole}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to add");
+    } finally {
+      setAllowBusy(false);
+    }
+  }
+
+  async function removeAllow(email: string) {
+    if (email === session?.email) {
+      toast.error("You cannot remove your own access here.");
+      return;
+    }
+    setAllowBusy(true);
+    try {
+      await removeAllowlistEntry(email);
+      setAllow(await fetchAllowlist());
+      toast.success(`Removed ${maskEmail(email)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove");
+    } finally {
+      setAllowBusy(false);
+    }
+  }
 
   useEffect(() => { pullSettingsFromCloud().then((r) => { if (r) setS(r); }); }, []);
 
@@ -56,6 +107,78 @@ function SettingsPage() {
           Reminders, integrations, and admin preferences.
         </p>
       </div>
+
+      {isOwner && (
+        <Card className="gold-frame">
+          <CardHeader>
+            <CardTitle className="text-gold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Internal access · allowlist
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Only emails on this list can sign in. Anyone else who authenticates
+              with Firebase is signed out and shown a "not authorized" warning.
+              Stored in the Firestore <code>allowlist</code> collection.
+              Emails are masked in shared views.
+            </p>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs">Email</Label>
+                <Input
+                  type="email"
+                  placeholder="person@example.com"
+                  value={allowEmail}
+                  onChange={(e) => setAllowEmail(e.target.value)}
+                  maxLength={200}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Role</Label>
+                <select
+                  value={allowRole}
+                  onChange={(e) => setAllowRole(e.target.value as Role)}
+                  className="h-9 rounded-md border bg-input px-2 text-sm"
+                >
+                  <option value="owner">owner</option>
+                  <option value="viewer">viewer</option>
+                </select>
+              </div>
+              <Button onClick={addAllow} disabled={allowBusy}>
+                <UserPlus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+
+            <div className="rounded border border-border/60 divide-y divide-border/40">
+              {allow.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  Loading allowlist…
+                </div>
+              ) : (
+                allow.map((a) => (
+                  <div key={a.email} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <div>
+                      <div className="font-medium">{maskEmail(a.email)}</div>
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-gold/80">
+                        {a.role}
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Remove ${maskEmail(a.email)}`}
+                      disabled={allowBusy || a.email === session?.email}
+                      onClick={() => removeAllow(a.email)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="gold-frame">
         <CardHeader>

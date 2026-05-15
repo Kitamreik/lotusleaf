@@ -7,6 +7,7 @@ import { LayoutDashboard, Users, Receipt, FileBarChart, ShieldCheck, ScrollText,
 import lotus from "@/assets/lotus.png";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { maskEmail } from "@/lib/roles";
 
 const items = [
   { title: "Dashboard", url: "/app", icon: LayoutDashboard },
@@ -64,7 +65,12 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
         {!collapsed && session && (
-          <div className="px-2 py-1 text-xs text-muted-foreground truncate">{session.email}</div>
+          <div className="px-2 py-1 text-xs text-muted-foreground truncate">
+            <span className="block truncate">{maskEmail(session.email)}</span>
+            <span className="text-[10px] uppercase tracking-[0.18em] text-gold/80">
+              {session.role}
+            </span>
+          </div>
         )}
         <Button
           variant="ghost"
