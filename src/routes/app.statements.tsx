@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ledger, assets, liabilities, equityStore } from "@/lib/store";
+import { ledger, assets, liabilities, equityStore, cases } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,30 @@ function StatementsPage() {
   const lg = ledger.list();
   const [period, setPeriod] = useState<"all" | "ytd" | "mtd">("ytd");
 
+  // === Accounts Receivable from CRM ===
+  // For every active (non-archived, non-Completed) case, the outstanding
+  // balance is contract amount − payment received. This is what populates
+  // the AR column on the statement and the Excel export.
+  const arRows = useMemo(() => {
+    return cases
+      .list()
+      .filter((c) => !c.archived && c.status !== "Completed")
+      .map((c) => ({
+        id: c.id,
+        client: c.client,
+        theme: c.theme,
+        status: c.status,
+        paymentStatus: c.paymentStatus,
+        billed: c.amount,
+        received: c.paymentReceived,
+        outstanding: Math.max(0, c.amount - c.paymentReceived),
+        notes: (c.notes ?? "").slice(0, 200),
+      }))
+      .filter((r) => r.outstanding > 0 || r.paymentStatus !== "Paid")
+      .sort((x, y) => y.outstanding - x.outstanding);
+  }, []);
+  const arTotal = arRows.reduce((s, r) => s + r.outstanding, 0);
+
   const filteredLedger = useMemo(() => {
     const now = new Date();
     return lg.filter((e) => {
@@ -111,6 +135,7 @@ function StatementsPage() {
       [],
       ["Assets", "", "Value"],
       ...a.map((i) => [i.name, i.date, i.value]),
+      ["Accounts Receivable (CRM)", "", arTotal],
       ["Total Assets", "", totalAssets],
       [],
       ["Liabilities", "", "Value"],
@@ -143,6 +168,21 @@ function StatementsPage() {
     });
     logAudit("statements.export", undefined, { period, income, expense, net });
     toast.success("Statements exported");
+  }
+
+  function exportAr() {
+    exportSheets(`accounts-receivable-${Date.now()}.xlsx`, {
+      "Accounts Receivable": [
+        ["Client", "Theme", "Status", "Payment", "Billed", "Received", "Outstanding", "Notes"],
+        ...arRows.map((r) => [
+          r.client, r.theme, r.status, r.paymentStatus,
+          r.billed, r.received, r.outstanding, r.notes,
+        ]),
+        ["", "", "", "", "", "Total outstanding", arTotal, ""],
+      ],
+    });
+    logAudit("statements.export.ar", undefined, { count: arRows.length, arTotal });
+    toast.success("Accounts Receivable exported");
   }
 
   return (
@@ -215,6 +255,60 @@ function StatementsPage() {
           onRemove={(id) => { equityStore.remove(id); setEq(equityStore.list()); }}
         />
       </div>
+
+      <Card className="gold-frame">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-gold">Accounts Receivable · from CRM</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Live from active cases. Total outstanding:{" "}
+              <span className="text-gold font-medium">${arTotal.toLocaleString()}</span>
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={exportAr} disabled={!arRows.length}>
+            <Download className="h-3 w-3 mr-1" /> Export AR
+          </Button>
+        </CardHeader>
+        <CardContent className="text-sm">
+          {arRows.length === 0 ? (
+            <p className="text-muted-foreground text-xs py-3">
+              No outstanding balances. All active cases are paid in full.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-left text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                    <th className="py-2 pr-3">Client</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">Payment</th>
+                    <th className="py-2 pr-3 text-right">Billed</th>
+                    <th className="py-2 pr-3 text-right">Received</th>
+                    <th className="py-2 pr-3 text-right">Outstanding</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {arRows.map((r) => (
+                    <tr key={r.id} className="border-b border-border/30">
+                      <td className="py-2 pr-3">
+                        <div className="font-medium">{r.client}</div>
+                        <div className="text-[11px] text-muted-foreground">{r.theme}</div>
+                      </td>
+                      <td className="py-2 pr-3">{r.status}</td>
+                      <td className="py-2 pr-3">{r.paymentStatus}</td>
+                      <td className="py-2 pr-3 text-right">${r.billed.toLocaleString()}</td>
+                      <td className="py-2 pr-3 text-right">${r.received.toLocaleString()}</td>
+                      <td className="py-2 pr-3 text-right text-gold font-medium">
+                        ${r.outstanding.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
