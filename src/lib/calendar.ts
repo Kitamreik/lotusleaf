@@ -5,7 +5,7 @@
 import { notifications } from "./store";
 import { logAudit } from "./security";
 
-const PRODID = "-//Kit TJ Services//Lotus & Leaf//EN";
+const PRODID = "-//Kit TJ Services//Kit TJ Services//EN";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 

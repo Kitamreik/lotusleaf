@@ -1,4 +1,4 @@
-# Lotus & Leaf Suite
+# Kit TJ Services Suite
 
 Internal CRM, bookkeeping, statements, and client portal for Kit TJ Services, LLC.
 
