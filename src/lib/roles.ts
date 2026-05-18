@@ -30,8 +30,6 @@ function buildSeed(): AllowlistEntry[] {
   const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as
     Record<string, string | undefined>;
   if (!env.DEV) return [];
-  const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as
-    Record<string, string | undefined>;
   const out: AllowlistEntry[] = [];
   const owner = (env.VITE_OWNER_EMAIL ?? "").trim().toLowerCase();
   const viewer = (env.VITE_VIEWER_EMAIL ?? "").trim().toLowerCase();
