@@ -18,13 +18,16 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/allowlist/$(emailKey())).data.role == 'owner';
     }
 
-    // The allowlist is readable by any authenticated user so the client can
-    // verify whether the signed-in user is permitted before any other read.
-    // Writes (add/remove/role-change) require an existing owner.
+    // Allowlist access is split: each authenticated user may only `get` their
+    // own entry (used by checkAllowlist on login). Only owners may `list` the
+    // full collection (used by the Settings admin UI) or write to it. This
+    // prevents staff-email enumeration by any Firebase-authenticated user.
     // Bootstrap: the first owner must be created out-of-band via the Firebase
     // Console (Firestore → allowlist collection → doc id = lowercase email).
     match /allowlist/{email} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null
+        && request.auth.token.email.lower() == email;
+      allow list: if isOwner();
       allow write: if isOwner();
     }
 
