@@ -11,7 +11,6 @@ service cloud.firestore {
     }
     function isAllowlisted() {
       return request.auth != null
-        && request.auth.token.email_verified == true
         && exists(/databases/$(database)/documents/allowlist/$(emailKey()));
     }
     function isOwner() {

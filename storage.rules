@@ -8,7 +8,6 @@ service firebase.storage {
     }
     function isAllowlisted() {
       return request.auth != null
-        && request.auth.token.email_verified == true
         && firestore.exists(/databases/(default)/documents/allowlist/$(emailKey()));
     }
     function isOwner() {
