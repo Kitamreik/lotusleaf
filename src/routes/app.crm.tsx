@@ -23,8 +23,11 @@ import { Plus, Download, Archive, ArchiveRestore, Trash2, Upload, FileText, Pack
 import { toast } from "sonner";
 import { exportSheets, fmt } from "@/lib/excel";
 import { downloadTemplate, readFileToRows, parseRows, applyImport } from "@/lib/import";
+import { RequireOwner } from "@/components/require-owner";
 
-export const Route = createFileRoute("/app/crm")({ component: CRMPage });
+export const Route = createFileRoute("/app/crm")({
+  component: () => (<RequireOwner><CRMPage /></RequireOwner>),
+});
 
 const THEMES = ["Consulting", "DEI", "Education", "Facilitation", "Workshops", "Systems Work"] as const;
 const STATUSES = ["Lead", "In Progress", "On Hold", "Completed", "Archived"] as const;
