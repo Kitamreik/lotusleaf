@@ -9,17 +9,20 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { maskEmail } from "@/lib/roles";
 
+// `ownerOnly` items are hidden for viewer-role sessions so the nav reflects
+// what the user can actually do. The RequireOwner guard still enforces
+// access at the route level for defense-in-depth.
 const items = [
-  { title: "Dashboard", url: "/app", icon: LayoutDashboard },
-  { title: "CRM — Cases", url: "/app/crm", icon: Users },
-  { title: "Bookkeeping", url: "/app/bookkeeping", icon: Receipt },
-  { title: "Reconciliation", url: "/app/reconcile", icon: Scale },
-  { title: "Statements", url: "/app/statements", icon: FileBarChart },
-  { title: "Audits & Reminders", url: "/app/audits", icon: ShieldCheck },
-  { title: "VC / B-Corp", url: "/app/readiness", icon: Award },
-  { title: "Client Portal", url: "/app/portal", icon: FolderLock },
-  { title: "Security Log", url: "/app/security", icon: ScrollText },
-  { title: "Settings", url: "/app/settings", icon: SettingsIcon },
+  { title: "Dashboard", url: "/app", icon: LayoutDashboard, ownerOnly: false },
+  { title: "CRM — Cases", url: "/app/crm", icon: Users, ownerOnly: true },
+  { title: "Bookkeeping", url: "/app/bookkeeping", icon: Receipt, ownerOnly: true },
+  { title: "Reconciliation", url: "/app/reconcile", icon: Scale, ownerOnly: true },
+  { title: "Statements", url: "/app/statements", icon: FileBarChart, ownerOnly: false },
+  { title: "Audits & Reminders", url: "/app/audits", icon: ShieldCheck, ownerOnly: true },
+  { title: "VC / B-Corp", url: "/app/readiness", icon: Award, ownerOnly: false },
+  { title: "Client Portal", url: "/app/portal", icon: FolderLock, ownerOnly: true },
+  { title: "Security Log", url: "/app/security", icon: ScrollText, ownerOnly: false },
+  { title: "Settings", url: "/app/settings", icon: SettingsIcon, ownerOnly: false },
 ];
 
 export function AppSidebar() {
@@ -27,6 +30,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { logout, session } = useAuth();
+  const isOwner = session?.role === "owner";
+  const visibleItems = items.filter((it) => !it.ownerOnly || isOwner);
 
   return (
     <Sidebar collapsible="icon">
@@ -46,7 +51,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((it) => {
+              {visibleItems.map((it) => {
                 const active = path === it.url || (it.url !== "/app" && path.startsWith(it.url));
                 return (
                   <SidebarMenuItem key={it.url}>

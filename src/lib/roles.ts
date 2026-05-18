@@ -98,18 +98,31 @@ export async function fetchAllowlist(): Promise<AllowlistEntry[]> {
 /** Authoritative check: reads Firestore (if reachable) before answering. */
 export async function checkAllowlist(email: string): Promise<AllowlistEntry | null> {
   const e = normalize(email);
+  // When Firebase is configured, the allowlist is authoritative server-side.
+  // We deliberately DO NOT fall back to the localStorage cache on error —
+  // that cache is attacker-writable (via XSS or device access) and trusting
+  // it would let a Firebase-authenticated user grant themselves owner
+  // access by tampering with the cache during a Firestore outage.
   if (firebaseEnabled && fbDb) {
     try {
       const ref = doc(collection(fbDb, COLL), e);
       const snap = await getDoc(ref);
-      if (snap.exists()) return snap.data() as AllowlistEntry;
-      // Try seeding then re-check (handles fresh project).
-      await fetchAllowlist();
+      if (snap.exists()) {
+        const entry = snap.data() as AllowlistEntry;
+        // Refresh the cache for UI hints only; never a security gate.
+        const next = [...readCache().filter((x) => x.email !== entry.email), entry];
+        writeCache(next);
+        return entry;
+      }
+      return null;
     } catch (err) {
-      console.warn("[allowlist] check failed, using cache:", err);
+      console.warn("[allowlist] Firestore unreachable; denying access (no cache fallback)", err);
+      return null;
     }
   }
-  return checkLocal(e);
+  // Firebase is not configured (e.g. local dev with no env). Fall back to
+  // the build-time seed only — not the mutable localStorage cache.
+  return SEED_ALLOWLIST.find((x) => x.email === e) ?? null;
 }
 
 export async function addAllowlistEntry(email: string, role: Role, note?: string) {
