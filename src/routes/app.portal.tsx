@@ -15,8 +15,11 @@ import {
 import { toast } from "sonner";
 import { Copy, Trash2, RefreshCw, Upload, FileSignature, Send } from "lucide-react";
 import { safeText } from "@/lib/security";
+import { RequireOwner } from "@/components/require-owner";
 
-export const Route = createFileRoute("/app/portal")({ component: AdminPortal });
+export const Route = createFileRoute("/app/portal")({
+  component: () => (<RequireOwner><AdminPortal /></RequireOwner>),
+});
 
 const inviteSchema = z.object({
   name: z.string().trim().min(1).max(120),
