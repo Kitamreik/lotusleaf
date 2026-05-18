@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Download, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { exportSheets, fmt } from "@/lib/excel";
+import { RequireOwner } from "@/components/require-owner";
 
 export const Route = createFileRoute("/app/bookkeeping")({
-  component: BookkeepingPage,
+  component: () => (<RequireOwner><BookkeepingPage /></RequireOwner>),
 });
 
 const EXPENSE_CATS: ExpenseCategory[] = [
