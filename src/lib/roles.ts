@@ -22,6 +22,14 @@ export type AllowlistEntry = {
 // For production, the authoritative seed should be installed via the admin
 // script (`scripts/seed-test-user.mjs`) directly against Firestore.
 function buildSeed(): AllowlistEntry[] {
+  // Only include seed emails in development builds. In production, VITE_*
+  // env vars get inlined into the public JS bundle by Vite, which would
+  // leak staff email addresses to anyone inspecting the bundle and defeat
+  // the Firestore allowlist enumeration protection. Production deployments
+  // must seed the allowlist out-of-band via scripts/seed-test-user.mjs.
+  const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as
+    Record<string, string | undefined>;
+  if (!env.DEV) return [];
   const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as
     Record<string, string | undefined>;
   const out: AllowlistEntry[] = [];
