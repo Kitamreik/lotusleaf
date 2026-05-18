@@ -9,8 +9,11 @@ import { buildReconciliation, resolveRow, resolveAll } from "@/lib/reconcile";
 import { ledger } from "@/lib/store";
 import { exportSheets, fmt } from "@/lib/excel";
 import { logAudit } from "@/lib/security";
+import { RequireOwner } from "@/components/require-owner";
 
-export const Route = createFileRoute("/app/reconcile")({ component: ReconcilePage });
+export const Route = createFileRoute("/app/reconcile")({
+  component: () => (<RequireOwner><ReconcilePage /></RequireOwner>),
+});
 
 function ReconcilePage() {
   const [tick, setTick] = useState(0);
