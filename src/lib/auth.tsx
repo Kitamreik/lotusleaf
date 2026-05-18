@@ -69,10 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (!(firebaseEnabled && fbAuth)) {
       logAudit("auth.login.fail", e);
-      throw new Error(
-        "Authentication unavailable: Firebase is not configured. " +
-        "Set the VITE_FIREBASE_* env vars and restart.",
-      );
+      // Generic message — do not disclose backend identity or configuration
+      // state to unauthenticated clients.
+      throw new Error("Authentication service is unavailable. Contact your administrator.");
     }
     try {
       await signInWithEmailAndPassword(fbAuth, e, password);

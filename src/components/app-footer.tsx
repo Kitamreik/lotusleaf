@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { firebaseEnabled } from "@/lib/firebase";
 
 export function AppFooter() {
   const year = new Date().getFullYear();
@@ -9,12 +8,7 @@ export function AppFooter() {
       <div className="px-6 pb-8 text-xs text-muted-foreground space-y-4 max-w-6xl mx-auto">
         <div className="flex flex-wrap gap-x-6 gap-y-1">
           <span>© {year} Kit TJ Services, LLC — Lotus &amp; Leaf Internal Suite. All rights reserved.</span>
-          <span>
-            Backend:{" "}
-            {firebaseEnabled
-              ? "Firebase Authentication + Firestore (with localStorage failsafe)"
-              : "localStorage failsafe (Firebase not configured)"}
-          </span>
+          <span>Authenticated, audited access · Internal use only</span>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
