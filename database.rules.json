@@ -1,6 +1,6 @@
 {
   "rules": {
-    ".read": "auth !== null",
-    ".write": "auth !== null"
+    ".read": "auth !== null && auth.token.email_verified === true && root.child('allowlist').child(auth.token.email.toLowerCase().replace('.', ',')).exists()",
+    ".write": "auth !== null && auth.token.email_verified === true && root.child('allowlist').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'owner'"
   }
 }
