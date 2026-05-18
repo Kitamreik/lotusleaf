@@ -16,10 +16,22 @@ export type AllowlistEntry = {
 };
 
 // Seed — guarantees the owner can sign in even before Firestore is reachable.
-export const SEED_ALLOWLIST: AllowlistEntry[] = [
-  { email: "kitdamreik@gmail.com", role: "owner", addedAt: 0 },
-  { email: "support@convohub.dev", role: "viewer", addedAt: 0 },
-];
+// Emails are NOT hardcoded in the client bundle. They are sourced from build-
+// time env vars (`VITE_OWNER_EMAIL`, `VITE_VIEWER_EMAIL`) so deployments can
+// override them and forks of the public repo do not expose staff addresses.
+// For production, the authoritative seed should be installed via the admin
+// script (`scripts/seed-test-user.mjs`) directly against Firestore.
+function buildSeed(): AllowlistEntry[] {
+  const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as
+    Record<string, string | undefined>;
+  const out: AllowlistEntry[] = [];
+  const owner = (env.VITE_OWNER_EMAIL ?? "").trim().toLowerCase();
+  const viewer = (env.VITE_VIEWER_EMAIL ?? "").trim().toLowerCase();
+  if (owner) out.push({ email: owner, role: "owner", addedAt: 0 });
+  if (viewer) out.push({ email: viewer, role: "viewer", addedAt: 0 });
+  return out;
+}
+export const SEED_ALLOWLIST: AllowlistEntry[] = buildSeed();
 
 const COLL = "allowlist";
 const LS_CACHE = "lotus.allowlist.cache.v1";
