@@ -1,12 +1,36 @@
 rules_version = '2';
 
-// Lock down: only authenticated users may read/write. If a single-admin
-// deployment is desired, restrict further by replacing the auth check with
-// `request.auth.uid == '<ADMIN_UID>'`.
+// Defense-in-depth: only authenticated AND allowlisted users may read.
+// Writes additionally require an `owner` role. The `allowlist` collection
+// itself is readable by any allowlisted user (so the app can render roles)
+// but writable only by owners.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function emailKey() {
+      return request.auth.token.email.lower();
+    }
+    function isAllowlisted() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/allowlist/$(emailKey()));
+    }
+    function isOwner() {
+      return isAllowlisted()
+        && get(/databases/$(database)/documents/allowlist/$(emailKey())).data.role == 'owner';
+    }
+
+    // The allowlist is readable by any authenticated user so the client can
+    // verify whether the signed-in user is permitted before any other read.
+    // Writes (add/remove/role-change) require an existing owner.
+    // Bootstrap: the first owner must be created out-of-band via the Firebase
+    // Console (Firestore → allowlist collection → doc id = lowercase email).
+    match /allowlist/{email} {
+      allow read: if request.auth != null;
+      allow write: if isOwner();
+    }
+
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read: if isAllowlisted();
+      allow write: if isOwner();
     }
   }
 }

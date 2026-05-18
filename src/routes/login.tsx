@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { firebaseEnabled, missingFirebaseVars, firebaseInitError } from "@/lib/firebase";
+import { firebaseEnabled } from "@/lib/firebase";
 import lotus from "@/assets/lotus.png";
 import { z } from "zod";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
@@ -120,33 +120,12 @@ function LoginPage() {
           </Button>
         </form>
         <p className="mt-6 text-[11px] text-muted-foreground text-center leading-relaxed">
-          Authenticated against Firebase. All access is logged.
+          Restricted access. All sign-ins are logged and audited.
         </p>
-        {(missingFirebaseVars.length > 0 || firebaseInitError || !firebaseEnabled) && (
-          <details className="mt-3 rounded border border-border/60 bg-muted/30 px-3 py-2 text-[11px]">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
-              Backend status {firebaseEnabled ? "· connected" : "· not configured"}
-            </summary>
-            <div className="mt-2 text-muted-foreground space-y-1.5">
-              {missingFirebaseVars.length > 0 && (
-                <>
-                  <div className="text-destructive font-medium">Missing env var(s):</div>
-                  <ul className="list-disc ml-4">
-                    {missingFirebaseVars.map((v) => <li key={v}><code>{v}</code></li>)}
-                  </ul>
-                  <div>
-                    Copy <code>.env.example</code> to <code>.env</code>, fill the values, then restart.
-                  </div>
-                </>
-              )}
-              {firebaseInitError && (
-                <div className="text-destructive break-words">{firebaseInitError}</div>
-              )}
-              {firebaseEnabled && !firebaseInitError && (
-                <div>Firebase Auth, Firestore, and Storage are configured.</div>
-              )}
-            </div>
-          </details>
+        {!firebaseEnabled && (
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+            Sign-in service is not ready. Contact your administrator.
+          </p>
         )}
       </div>
     </main>

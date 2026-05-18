@@ -21,7 +21,44 @@ async function getServerEntry(): Promise<ServerEntry> {
 function brandedErrorResponse(): Response {
   return new Response(renderErrorPage(), {
     status: 500,
-    headers: { "content-type": "text/html; charset=utf-8" },
+    headers: { "content-type": "text/html; charset=utf-8", ...SECURITY_HEADERS },
+  });
+}
+
+// Defense-in-depth response headers. Applied to every outbound response from
+// the Worker so that even minimal/error responses carry hardening signals.
+// - HSTS: enforce HTTPS for a year, include subdomains.
+// - X-Content-Type-Options: block MIME sniffing.
+// - X-Frame-Options + frame-ancestors: defeat clickjacking.
+// - Referrer-Policy: never leak full URLs to third parties.
+// - Permissions-Policy: drop powerful browser features by default.
+// - Cross-Origin-Opener-Policy: process isolation against Spectre-class leaks.
+// - X-Robots-Tag: belt-and-suspenders for the internal suite (also set in <head>).
+// Note: a strict script-src CSP is intentionally NOT shipped here because the
+// SSR shell inlines hydration scripts; tightening that requires nonces, which
+// is a separate change. We still set frame-ancestors via CSP.
+const SECURITY_HEADERS: Record<string, string> = {
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy":
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+  "cross-origin-opener-policy": "same-origin",
+  "x-robots-tag": "noindex, nofollow, noarchive",
+  "content-security-policy": "frame-ancestors 'none'",
+};
+
+function withSecurityHeaders(response: Response): Response {
+  // Some runtimes return immutable header bags; clone to be safe.
+  const headers = new Headers(response.headers);
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
+    if (!headers.has(k)) headers.set(k, v);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
   });
 }
 
@@ -71,7 +108,8 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      return withSecurityHeaders(normalized);
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();
