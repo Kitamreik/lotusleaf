@@ -165,10 +165,10 @@ export const portal = {
     sig.signedAt = Date.now();
     sig.signerName = payload.signerName;
     sig.signatureDataUrl = payload.signatureDataUrl;
-    try {
-      const r = await fetch("https://api.ipify.org?format=json").then((x) => x.json());
-      sig.signerIp = r?.ip;
-    } catch { /* ip lookup is best-effort */ }
+    // IP capture intentionally omitted: third-party lookups (e.g. ipify)
+    // leak signer IPs to external services. Signer name + signature image +
+    // body hash + timestamp provide a sufficient audit record. If IP is
+    // needed, capture it server-side from the request in a future API route.
     try {
       const data = `${payload.signerName}|${sig.body}|${payload.signatureDataUrl}|${sig.signedAt}`;
       const buf = new TextEncoder().encode(data);
