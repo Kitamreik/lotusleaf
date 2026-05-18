@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle2, AlertCircle, Calendar } from "lucide-react";
 import { safeText } from "@/lib/security";
 import { toast } from "sonner";
+import { RequireOwner } from "@/components/require-owner";
 
 export const Route = createFileRoute("/app/audits")({
-  component: AuditsPage,
+  component: () => (<RequireOwner><AuditsPage /></RequireOwner>),
 });
 
 function AuditsPage() {
