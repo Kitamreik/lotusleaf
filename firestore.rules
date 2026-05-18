@@ -31,6 +31,13 @@ service cloud.firestore {
       allow write: if isOwner();
     }
 
+    // Portal client records contain magic-link tokens, document data URLs,
+    // and signer PII. Restrict to owners only — viewers must NOT see tokens
+    // or be able to impersonate clients via /portal?t=<token>.
+    match /portal_clients/{clientId} {
+      allow read, write: if isOwner();
+    }
+
     match /{document=**} {
       allow read: if isAllowlisted();
       allow write: if isOwner();
